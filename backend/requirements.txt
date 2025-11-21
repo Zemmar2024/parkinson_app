@@ -3,5 +3,6 @@ uvicorn
 sqlalchemy
 pydantic
 python-multipart
-numpy
 pillow
+numpy
+tensorflow-cpu  

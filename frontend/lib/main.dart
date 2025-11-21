@@ -9,8 +9,9 @@ import 'package:intl/intl.dart';
 
 // --- CONFIG ---
 // Use 10.0.2.2 for Android Emulator, or your PC IP (e.g. 192.168.x.x) for physical device
-const String BASE_URL = "http://10.0.2.2:8000";
-
+// const String BASE_URL = "http://10.0.2.2:8000";
+// const String BASE_URL = "http://127.0.0.1:8000"; // Ancien (Local)
+const String BASE_URL = "https://mon-parkinson-app.onrender.com"; // Nouveau (Internet)
 void main() {
   runApp(
     MultiProvider(

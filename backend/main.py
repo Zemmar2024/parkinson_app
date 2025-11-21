@@ -4,6 +4,11 @@ import base64
 import random
 import datetime
 from typing import List, Optional
+import numpy as np
+
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +45,18 @@ class DrawingDB(Base):
 
 Base.metadata.create_all(bind=engine)
 
+
+# --- Chargement du Modèle IA ---
+print("Chargement du modèle en cours...")
+try:
+    # Assurez-vous que model.h5 est dans le même dossier ou indiquez le chemin
+    MODEL = load_model("model.h5") 
+    print("Modèle chargé avec succès !")
+except Exception as e:
+    print(f"Erreur lors du chargement du modèle : {e}")
+    MODEL = None
+
+
 # --- FastAPI App ---
 app = FastAPI()
 
@@ -73,9 +90,33 @@ class PredictionResponse(BaseModel):
     lime_explanation: str # Base64 image string
 
 # --- ML Helper Functions (Mocked for MVP) ---
-def mock_predict_parkinsons(image_path: str):
+# def mock_predict_parkinsons(image_path: str):
     # TODO: Load your actual .h5 model here
-    return random.uniform(0, 1)
+ #   return random.uniform(0, 1)
+
+def predict_parkinsons_real(image_path: str):
+    if MODEL is None:
+        return 0.5 # Retourne une valeur par défaut si le modèle a planté
+    
+    # 1. Charger l'image et la redimensionner à la taille attendue par le modèle
+    # IMPORTANT : Remplacez (128, 128) par la taille utilisée lors de votre entraînement !
+    img = image.load_img(image_path, target_size=(224, 224), color_mode="rgb") # ou "grayscale" si N&B
+    
+    # 2. Convertir en tableau de nombres (Array)
+    img_array = image.img_to_array(img)
+    
+    # 3. Normaliser (diviser par 255) si vous l'avez fait à l'entraînement
+    img_array = img_array / 255.0
+    
+    # 4. Ajouter une dimension pour créer un "batch" (le modèle attend [1, 224, 224, 3])
+    img_array = np.expand_dims(img_array, axis=0)
+    
+    # 5. Faire la prédiction
+    prediction = MODEL.predict(img_array)
+    
+    # 6. Récupérer le score (supposons que c'est une sortie binaire 0 à 1)
+    score = float(prediction[0][0])
+    return score
 
 def mock_lime_explanation(image_path: str):
     # TODO: Apply LIME here. 
@@ -118,8 +159,9 @@ async def predict(
     with open(file_location, "wb") as f:
         f.write(await file.read())
     
-    score = mock_predict_parkinsons(file_location)
-    label = "High Risk" if score > 0.5 else "Healthy"
+    # score = mock_predict_parkinsons(file_location)
+    score = predict_parkinsons_real(file_location)
+    label = "High Risk Parkinson" if score > 0.5 else "Healthy"
     lime_b64 = mock_lime_explanation(file_location)
     
     db_drawing = DrawingDB(user_id=user_id, image_path=file_location, prediction_score=score)

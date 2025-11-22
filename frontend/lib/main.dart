@@ -9,7 +9,7 @@ import 'package:intl/intl.dart';
 
 // --- CONFIG ---
 // Use 10.0.2.2 for Android Emulator, or your PC IP (e.g. 192.168.x.x) for physical device
-const String BASE_URL = "http://10.0.2.2:8000";
+const String BASE_URL = "https://parkinson-app-6vt4.onrender.com";
 
 void main() {
   runApp(

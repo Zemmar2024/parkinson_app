@@ -6,9 +6,9 @@ import datetime
 from typing import List, Optional
 import numpy as np
 
-import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
+#import tensorflow as tf
+#from tensorflow.keras.models import load_model
+#from tensorflow.keras.preprocessing import image
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,15 +47,16 @@ Base.metadata.create_all(bind=engine)
 
 
 # --- Chargement du Modèle IA ---
-print("Chargement du modèle en cours...")
-try:
+#print("Chargement du modèle en cours...")
+#try:
     # Assurez-vous que model.h5 est dans le même dossier ou indiquez le chemin
-    MODEL = load_model("model.h5") 
-    print("Modèle chargé avec succès !")
-except Exception as e:
-    print(f"Erreur lors du chargement du modèle : {e}")
-    MODEL = None
+#    MODEL = load_model("model.h5") 
+#    print("Modèle chargé avec succès !")
+#except Exception as e:
+#    print(f"Erreur lors du chargement du modèle : {e}")
+#    MODEL = None
 
+MODEL = None
 
 # --- FastAPI App ---
 app = FastAPI()
@@ -90,9 +91,9 @@ class PredictionResponse(BaseModel):
     lime_explanation: str # Base64 image string
 
 # --- ML Helper Functions (Mocked for MVP) ---
-# def mock_predict_parkinsons(image_path: str):
+def mock_predict_parkinsons(image_path: str):
     # TODO: Load your actual .h5 model here
- #   return random.uniform(0, 1)
+   return random.uniform(0, 1)
 
 def predict_parkinsons_real(image_path: str):
     if MODEL is None:
@@ -160,7 +161,8 @@ async def predict(
         f.write(await file.read())
     
     # score = mock_predict_parkinsons(file_location)
-    score = predict_parkinsons_real(file_location)
+   # score = predict_parkinsons_real(file_location)
+    score = mock_predict_parkinsons(file_location)
     label = "High Risk Parkinson" if score > 0.5 else "Healthy"
     lime_b64 = mock_lime_explanation(file_location)
     

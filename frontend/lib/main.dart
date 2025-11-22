@@ -7,11 +7,17 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
+import 'dart:math' as math;
+import 'screens/admin_users_screen.dart'; // Assurez-vous que le chemin est bon
+
 // --- CONFIG ---
 // Use 10.0.2.2 for Android Emulator, or your PC IP (e.g. 192.168.x.x) for physical device
 // const String BASE_URL = "http://10.0.2.2:8000";
 // const String BASE_URL = "http://127.0.0.1:8000"; // Ancien (Local)
-const String BASE_URL = "https://parkinson-app-6vt4.onrender.com";  // Nouveau (Internet)
+//"const String BASE_URL = "https://parkinson-app-6vt4.onrender.com";  // Nouveau (Internet)
+
+const String BASE_URL = "http://10.0.2.2:8000";
+
 void main() {
   runApp(
     MultiProvider(
@@ -302,21 +308,83 @@ class _DrawingScreenState extends State<DrawingScreen> {
   }
 }
 
+
 class SpiralPainter extends CustomPainter {
   final List<Offset?> points;
   SpiralPainter(this.points);
-  @override
+
+ @override
   void paint(Canvas canvas, Size size) {
-    Paint paint = Paint()..color = Colors.black..strokeCap = StrokeCap.round..strokeWidth = 4.0;
+    // --- PARTIE 1 : LE MODÈLE (Spirale Grise) ---
+    Paint guidePaint = Paint()
+      ..color = Colors.grey.withOpacity(0.3) // Plus clair pour ne pas gêner
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10.0 // Assez large pour servir de chemin
+      ..strokeCap = StrokeCap.round;
+
+    Path guidePath = Path();
+    double centerX = size.width / 2;
+    double centerY = size.height / 2;
+
+    // --- CORRECTION ICI ---
+    // growthFactor détermine l'écartement entre les lignes.
+    // 6.0 donne un écart d'environ 35 pixels entre chaque tour, ce qui est bien.
+    double growthFactor = 10.0; 
+    
+    // On limite à 4 tours complets (4 * 2 * PI) pour ne pas sortir de l'écran
+    double maxAngle = 4 * 2 * math.pi; 
+
+    guidePath.moveTo(centerX, centerY);
+
+    for (double i = 0; i < maxAngle; i += 0.05) {
+      double angle = i;
+      double radius = growthFactor * angle;
+      
+      double x = centerX + radius * math.cos(angle);
+      double y = centerY + radius * math.sin(angle);
+
+      // Sécurité pour ne pas dessiner hors de la zone
+      if (x < 0 || x > size.width || y < 0 || y > size.height) break;
+
+      guidePath.lineTo(x, y);
+    }
+    
+    canvas.drawPath(guidePath, guidePaint);
+
+
+    // --- PARTIE 2 : LE DESSIN DU PATIENT (Trait Noir) ---
+    Paint userPaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke // Important : stroke sinon il remplit
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 4.0; // Trait fin pour la précision
+
     for (int i = 0; i < points.length - 1; i++) {
       if (points[i] != null && points[i + 1] != null) {
-        canvas.drawLine(points[i]!, points[i + 1]!, paint);
+        canvas.drawLine(points[i]!, points[i + 1]!, userPaint);
       }
     }
   }
+
   @override
   bool shouldRepaint(SpiralPainter oldDelegate) => true;
 }
+
+//class SpiralPainter extends CustomPainter {
+//  final List<Offset?> points;
+ // SpiralPainter(this.points);
+ // @override
+ // void paint(Canvas canvas, Size size) {
+ //   Paint paint = Paint()..color = Colors.black..strokeCap = StrokeCap.round..strokeWidth = 4.0;
+  //  for (int i = 0; i < points.length - 1; i++) {
+   //   if (points[i] != null && points[i + 1] != null) {
+   //     canvas.drawLine(points[i]!, points[i + 1]!, paint);
+    //  }
+   // }
+ // }
+ // @override
+ // bool shouldRepaint(SpiralPainter oldDelegate) => true;
+// }
 
 class ResultScreen extends StatelessWidget {
   final Map<String, dynamic> result;
@@ -427,6 +495,9 @@ class AdminScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1. On récupère l'info de l'utilisateur connecté (l'admin)
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
     return Scaffold(
       appBar: AppBar(title: const Text("Admin Dashboard")),
       body: FutureBuilder<Map<String, dynamic>>(
@@ -443,6 +514,33 @@ class AdminScreen extends StatelessWidget {
                 _statCard("Total Users", "${data['total_users']}", Colors.blue),
                 _statCard("Total Tests Run", "${data['total_drawings']}", Colors.purple),
                 _statCard("Avg Global Risk", "${(data['average_risk_score'] * 100).toStringAsFixed(1)}%", Colors.orange),
+                
+                const SizedBox(height: 30), // Espace avant le bouton
+
+                // 2. AJOUT DU BOUTON ICI 👇
+                SizedBox(
+                  width: double.infinity, // Pour que le bouton prenne toute la largeur
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.people, color: Colors.white),
+                    label: const Text("Manage users", style: TextStyle(color: Colors.white, fontSize: 18)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal, // Couleur du bouton
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () {
+                      // On vérifie que l'ID n'est pas null avant de naviguer
+                      if (auth.userId != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AdminUsersScreen(adminId: auth.userId!),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
               ],
             ),
           );

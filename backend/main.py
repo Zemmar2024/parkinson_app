@@ -28,6 +28,8 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+
+
 class UserDB(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -84,6 +86,17 @@ class UserSignup(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+
+# Ajoutez ceci avec les autres classes Pydantic
+class UserListResponse(BaseModel):
+    id: int
+    username: str
+    is_admin: bool
+    
+    class Config:
+        orm_mode = True
+
 
 class PredictionResponse(BaseModel):
     score: float
@@ -194,6 +207,49 @@ def get_stats(db: Session = Depends(get_db)):
         "total_drawings": total_drawings,
         "average_risk_score": avg_score
     }
+
+
+@app.get("/admin/users", response_model=List[UserListResponse])
+def get_all_users(admin_id: int, db: Session = Depends(get_db)):
+    # 1. Vérifier si celui qui demande est bien un admin
+    admin = db.query(UserDB).filter(UserDB.id == admin_id).first()
+    if not admin or not admin.is_admin:
+        raise HTTPException(status_code=403, detail="Accès refusé : Vous n'êtes pas admin")
+
+    # 2. Récupérer tous les utilisateurs
+    users = db.query(UserDB).all()
+    return users
+
+
+
+
+@app.delete("/admin/users/{user_id_to_delete}")
+def delete_user(user_id_to_delete: int, admin_id: int, db: Session = Depends(get_db)):
+    # 1. Vérifier si celui qui demande est bien un admin
+    admin = db.query(UserDB).filter(UserDB.id == admin_id).first()
+    if not admin or not admin.is_admin:
+        raise HTTPException(status_code=403, detail="Accès refusé : Vous n'êtes pas admin")
+
+    # 2. Empêcher l'admin de se supprimer lui-même (sécurité)
+    if user_id_to_delete == admin_id:
+        raise HTTPException(status_code=400, detail="Vous ne pouvez pas supprimer votre propre compte admin")
+
+    # 3. Trouver l'utilisateur à supprimer
+    user = db.query(UserDB).filter(UserDB.id == user_id_to_delete).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+
+    # 4. Supprimer aussi ses dessins (Nettoyage)
+    db.query(DrawingDB).filter(DrawingDB.user_id == user_id_to_delete).delete()
+
+    # 5. Supprimer l'utilisateur
+    db.delete(user)
+    db.commit()
+
+    return {"message": f"L'utilisateur {user.username} et ses données ont été supprimés."}
+
+
+
 
 if __name__ == "__main__":
     import uvicorn
